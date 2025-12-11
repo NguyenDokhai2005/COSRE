@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/projects")
+@RequestMapping("/api/projects")
 public class ProjectController {
 
     @Autowired
@@ -134,6 +134,86 @@ public class ProjectController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(ApiResponse.error("Failed to get upcoming milestones: " + e.getMessage()));
+        }
+    }
+
+    // APPROVAL FLOW APIs
+    @PutMapping("/{id}/submit")
+    @PreAuthorize("hasRole('LECTURER')")
+    public ResponseEntity<ApiResponse<Project>> submitProject(
+            @PathVariable Long id,
+            Authentication authentication) {
+        try {
+            UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+            User lecturer = userRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+            Project project = projectService.submitProject(id, lecturer);
+            return ResponseEntity.ok(ApiResponse.success("Project submitted for approval", project));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error("Failed to submit project: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/approve")
+    @PreAuthorize("hasRole('HEAD_DEPARTMENT') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Project>> approveProject(
+            @PathVariable Long id,
+            @RequestParam(required = false) String comment,
+            Authentication authentication) {
+        try {
+            UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+            User approver = userRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+            Project project = projectService.approveProject(id, approver, comment);
+            return ResponseEntity.ok(ApiResponse.success("Project approved successfully", project));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error("Failed to approve project: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/{id}/reject")
+    @PreAuthorize("hasRole('HEAD_DEPARTMENT') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Project>> rejectProject(
+            @PathVariable Long id,
+            @RequestParam(required = false) String reason,
+            Authentication authentication) {
+        try {
+            UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+            User rejector = userRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+            Project project = projectService.rejectProject(id, rejector, reason);
+            return ResponseEntity.ok(ApiResponse.success("Project rejected", project));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error("Failed to reject project: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/pending")
+    @PreAuthorize("hasRole('HEAD_DEPARTMENT') or hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<Project>>> getPendingProjects() {
+        try {
+            List<Project> projects = projectService.getPendingProjects();
+            return ResponseEntity.ok(ApiResponse.success("Pending projects retrieved successfully", projects));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error("Failed to get pending projects: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/approved")
+    public ResponseEntity<ApiResponse<List<Project>>> getApprovedProjects() {
+        try {
+            List<Project> projects = projectService.getApprovedProjects();
+            return ResponseEntity.ok(ApiResponse.success("Approved projects retrieved successfully", projects));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ApiResponse.error("Failed to get approved projects: " + e.getMessage()));
         }
     }
 }

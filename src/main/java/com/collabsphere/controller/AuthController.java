@@ -16,7 +16,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 public class AuthController {
 
     @Autowired
@@ -76,7 +76,17 @@ public class AuthController {
             user.setEmail(registerRequest.getEmail());
             user.setPassword(passwordEncoder.encode(registerRequest.getPassword()));
             user.setFullName(registerRequest.getFullName());
-            user.setRole(UserRole.STUDENT); // Default role
+            
+            // Set role from request or default to STUDENT
+            UserRole role = UserRole.STUDENT; // Default
+            if (registerRequest.getRole() != null && !registerRequest.getRole().isEmpty()) {
+                try {
+                    role = UserRole.valueOf(registerRequest.getRole().toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    // Invalid role, keep default
+                }
+            }
+            user.setRole(role);
             user.setActive(true);
 
             User savedUser = userRepository.save(user);

@@ -1,5 +1,6 @@
 package com.collabsphere.entity;
 
+import com.collabsphere.entity.enums.ProjectStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
@@ -24,6 +25,10 @@ public class Project {
     @Column(nullable = false)
     private LocalDateTime deadline;
     
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ProjectStatus status = ProjectStatus.DRAFT;
+    
     // Quan hệ với ClassRoom
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "classroom_id", nullable = false)
@@ -47,6 +52,7 @@ public class Project {
         this.description = description;
         this.deadline = deadline;
         this.classRoom = classRoom;
+        this.status = ProjectStatus.DRAFT;
     }
 
     // Getters and Setters
@@ -80,6 +86,14 @@ public class Project {
 
     public void setDeadline(LocalDateTime deadline) {
         this.deadline = deadline;
+    }
+
+    public ProjectStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(ProjectStatus status) {
+        this.status = status;
     }
 
     public ClassRoom getClassRoom() {

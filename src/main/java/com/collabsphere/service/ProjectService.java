@@ -6,6 +6,7 @@ import com.collabsphere.entity.ClassRoom;
 import com.collabsphere.entity.Milestone;
 import com.collabsphere.entity.Project;
 import com.collabsphere.entity.User;
+import com.collabsphere.entity.enums.ProjectStatus;
 import com.collabsphere.entity.enums.UserRole;
 import com.collabsphere.repository.ClassRoomRepository;
 import com.collabsphere.repository.MilestoneRepository;
@@ -32,21 +33,17 @@ public class ProjectService {
     private MilestoneRepository milestoneRepository;
 
     public Project createProject(CreateProjectRequest request, User user) {
-        // Validate user role
         if (user.getRole() != UserRole.LECTURER && user.getRole() != UserRole.ADMIN) {
             throw new RuntimeException("Only lecturers and admins can create projects");
         }
 
-        // Find classroom
         ClassRoom classRoom = classRoomRepository.findById(request.getClassroomId())
             .orElseThrow(() -> new RuntimeException("Classroom not found"));
 
-        // Validate lecturer owns the classroom (unless admin)
         if (user.getRole() == UserRole.LECTURER && !classRoom.getLecturer().getId().equals(user.getId())) {
             throw new RuntimeException("You can only create projects for your own classrooms");
         }
 
-        // Validate deadline is in the future
         if (request.getDeadline().isBefore(LocalDateTime.now())) {
             throw new RuntimeException("Project deadline must be in the future");
         }
@@ -56,10 +53,72 @@ public class ProjectService {
         project.setDescription(request.getDescription());
         project.setDeadline(request.getDeadline());
         project.setClassRoom(classRoom);
+        project.setStatus(ProjectStatus.DRAFT);
 
         return projectRepository.save(project);
     }
 
+    public List<Project> getProjectsByClassroom(Long classroomId) {
+        return projectRepository.findByClassRoomId(classroomId);
+    }
+
+    public List<Project> getProjectsByLecturer(User lecturer) {
+        return projectRepository.findByLecturerId(lecturer.getId());
+    }
+
+    public Optional<Project> getProjectById(Long id) {
+        return projectRepository.findById(id);
+    }
+
+    public List<Project> getPendingProjects() {
+        return projectRepository.findByStatus(ProjectStatus.PENDING);
+    }
+    
+    public List<Project> getApprovedProjects() {
+        return projectRepository.findByStatus(ProjectStatus.APPROVED);
+    }
+
+    public Project submitProject(Long projectId, User lecturer) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new RuntimeException("Project not found"));
+        
+        if (!project.getClassRoom().getLecturer().getId().equals(lecturer.getId())) {
+            throw new RuntimeException("You can only submit your own projects");
+        }
+        
+        if (project.getStatus() != ProjectStatus.DRAFT) {
+            throw new RuntimeException("Only draft projects can be submitted");
+        }
+        
+        project.setStatus(ProjectStatus.PENDING);
+        return projectRepository.save(project);
+    }
+    
+    public Project approveProject(Long projectId, User approver, String comment) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new RuntimeException("Project not found"));
+        
+        if (project.getStatus() != ProjectStatus.PENDING) {
+            throw new RuntimeException("Only pending projects can be approved");
+        }
+        
+        project.setStatus(ProjectStatus.APPROVED);
+        return projectRepository.save(project);
+    }
+    
+    public Project rejectProject(Long projectId, User rejector, String reason) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow(() -> new RuntimeException("Project not found"));
+        
+        if (project.getStatus() != ProjectStatus.PENDING) {
+            throw new RuntimeException("Only pending projects can be rejected");
+        }
+        
+        project.setStatus(ProjectStatus.REJECTED);
+        return projectRepository.save(project);
+    }
+
+    // MILESTONE MANAGEMENT METHODS
     public Milestone createMilestone(Long projectId, CreateMilestoneRequest request, User user) {
         // Find project
         Project project = projectRepository.findById(projectId)
@@ -69,11 +128,6 @@ public class ProjectService {
         if (user.getRole() == UserRole.LECTURER && 
             !project.getClassRoom().getLecturer().getId().equals(user.getId())) {
             throw new RuntimeException("You can only create milestones for your own projects");
-        }
-
-        // Validate due date is before project deadline
-        if (request.getDueDate().isAfter(project.getDeadline())) {
-            throw new RuntimeException("Milestone due date cannot be after project deadline");
         }
 
         // Validate due date is in the future
@@ -89,23 +143,8 @@ public class ProjectService {
         return milestoneRepository.save(milestone);
     }
 
-    public List<Project> getProjectsByClassroom(Long classroomId) {
-        return projectRepository.findByClassRoomId(classroomId);
-    }
-
-    public List<Project> getProjectsByLecturer(User lecturer) {
-        List<ClassRoom> classRooms = classRoomRepository.findByLecturer(lecturer);
-        return classRooms.stream()
-            .flatMap(classRoom -> projectRepository.findByClassRoom(classRoom).stream())
-            .toList();
-    }
-
-    public Optional<Project> getProjectById(Long id) {
-        return projectRepository.findById(id);
-    }
-
     public List<Milestone> getMilestonesByProject(Long projectId) {
-        return milestoneRepository.findByProjectIdOrderByDueDate(projectId);
+        return milestoneRepository.findByProjectId(projectId);
     }
 
     public List<Project> getActiveProjects(Long classroomId) {

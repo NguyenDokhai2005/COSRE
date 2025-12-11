@@ -15,6 +15,8 @@ public class RegisterRequest {
 
     @NotBlank(message = "Full name is required")
     private String fullName;
+    
+    private String role; // Optional role field
 
     public RegisterRequest() {}
 
@@ -22,6 +24,13 @@ public class RegisterRequest {
         this.email = email;
         this.password = password;
         this.fullName = fullName;
+    }
+    
+    public RegisterRequest(String email, String password, String fullName, String role) {
+        this.email = email;
+        this.password = password;
+        this.fullName = fullName;
+        this.role = role;
     }
 
     public String getEmail() {
@@ -46,5 +55,13 @@ public class RegisterRequest {
 
     public void setFullName(String fullName) {
         this.fullName = fullName;
+    }
+    
+    public String getRole() {
+        return role;
+    }
+    
+    public void setRole(String role) {
+        this.role = role;
     }
 }
